@@ -59,11 +59,11 @@ DataInfo assignToCustomMemory(CustomMemory memory, uint8_t index, uint8_t sizeIn
     3.  return a struct containing where the data starts and it's size in bytes.
   */
 
-  if(sizeInBytes == 8) {
+  if(sizeInBytes == 1) {
     *(uint8_t *)&memory.address[index] = *(uint8_t *)data;
-  } else if(sizeInBytes == 16) {
+  } else if(sizeInBytes == 2) {
     *(uint16_t *)&memory.address[index] = *(uint16_t *)data;
-  } else if(sizeInBytes == 32) {
+  } else if(sizeInBytes == 4) {
     *(uint32_t *)&memory.address[index] = *(uint32_t *)data;
   } else {
     *(uint64_t *)&memory.address[index] = *(uint64_t *)data;
