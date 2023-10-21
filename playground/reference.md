@@ -3,10 +3,12 @@
 ## Int
 - minimum of 16 bits (2 bytes).
 
+- Short int is at least 16bits (2 bytes), int is at least 16bits, long int is at least 32bit (4 bytes), long long int is at least 64bit (8 bytes).
+
 - Can hold values from at least -32,786 to 32,786 (65536 possible values in 16 
 bits)
 
-- This computer has 32 bit integers (4 bytes) that hold values between 
+- This computer has 32 bit ints (4 bytes) that hold values between 
 -2147483648 and 2147483647 (4294967296 possible values in 32 bits)
 
 
@@ -177,6 +179,7 @@ printf("new num value %d\n", num);
 So, we know about variables, types, pointers, values, memory addresses, and all that good stuff. Let's try to explain how a string works. 
 
 ```c
+// 
 const char * string = "hello";
 char charArray[] = {'h', 'e', 'l', 'l', 'o', '\0'};
 
