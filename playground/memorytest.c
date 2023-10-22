@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <string.h>
 
 typedef struct {
   uint8_t size;
@@ -25,7 +26,7 @@ CustomMemory allocateCustomMemory(uint8_t size) {
   return theCustomMemory;
 }
 
-DataInfo assignToCustomMemory(CustomMemory memory, uint8_t index, uint8_t sizeInBytes, void * data) {
+DataInfo assignToCustomMemory(CustomMemory memory, uint8_t index, uint8_t sizeInBytes, char * data) {
   // assigns a value somewhere in an CustomMemory object for use later.
 
   if(
@@ -59,40 +60,41 @@ DataInfo assignToCustomMemory(CustomMemory memory, uint8_t index, uint8_t sizeIn
     3.  return a struct containing where the data starts and it's size in bytes.
   */
 
-  if(sizeInBytes == 1) {
+  // THIS WORKS! Allocate the data dynamically.
+  for(uint8_t i = 0; i < sizeInBytes; i++) {
+    *(uint8_t *)&memory.address[index + i] = *(uint8_t *)&data[i];
+  }
+
+  /* if(sizeInBytes == 1) {
     *(uint8_t *)&memory.address[index] = *(uint8_t *)data;
   } else if(sizeInBytes == 2) {
     *(uint16_t *)&memory.address[index] = *(uint16_t *)data;
   } else if(sizeInBytes == 4) {
     *(uint32_t *)&memory.address[index] = *(uint32_t *)data;
-  } else {
+  } else if (sizeInBytes == 8){
     *(uint64_t *)&memory.address[index] = *(uint64_t *)data;
-  }
+  } else {
+    // THIS WORKS! Allocate the data dynamically.
+    for(uint8_t i = 0; i < sizeInBytes; i++) {
+      *(uint8_t *)&memory.address[index + i] = *(uint8_t *)&data[i];
+    }
+  } */
 
   DataInfo info = {sizeInBytes, index};
-
+  
   return info;
 }
 
-void freeAllocatedMemory(CustomMemory * memory) {
+void freeCustomMemory(CustomMemory * memory) {
   // frees dynamically allocated memory and marks the struct as freed.
   free(memory->address);
   memory->size = 0;
   memory->freed = true;
-};
+}
 
 void * readData(CustomMemory memory, DataInfo data) {
   // return a void pointer to the data
-  switch(data.size) {
-    case 1:
-      return &memory.address[data.start];
-    case 2:
-      return &memory.address[data.start];
-    case 4:
-      return &memory.address[data.start];
-    case 8:
-      return &memory.address[data.start];
-  }
+  return &memory.address[data.start];
 }
 
 void printData(CustomMemory memory, char * formatString, DataInfo data) {
@@ -142,24 +144,24 @@ int main (void) {
   // woo!
   // assigns the number to bytes 2-5 of myMemory
   long int myNum = 1000;
-  DataInfo myNumVar = assignToCustomMemory(myMemory, 2, sizeof(myNum), &myNum);
+  DataInfo myNumVar = assignToCustomMemory(myMemory, 2, sizeof(myNum), (char *)&myNum);
   printData(myMemory, "%li\n", myNumVar);
 
   
 
-  // this doesn't work at all with %s....
   // I can read each individual character though... so all the data is stored.
-  char * myString = "hi!";
-  DataInfo myStringVar = assignToCustomMemory(myMemory, 3, 4, myString);
+  char * myString = "Hey! My name is billy ray!";
+  DataInfo myStringVar = assignToCustomMemory(myMemory, 6, strlen(myString) + 1, myString);
   printData(myMemory, "%c\n", myStringVar);
+  printf("%c\n", *(char *)&myMemory.address[myStringVar.start + 0]);
   printf("%c\n", *(char *)&myMemory.address[myStringVar.start + 1]);
-  printf("%c\n", *(char *)&myMemory.address[myStringVar.start + 2]);
   // ooo! I can get it to read the whole string! I just have to *not* dereference it.
   printf("%s\n", (char *)readData(myMemory, myStringVar));
 
+
   // have to pass a pointer, otherwise the struct is copied and `myMemory.freed` in this scope is not set to `true`
   // (the actual memory *is* freed though)
-  freeAllocatedMemory(&myMemory);
+  freeCustomMemory(&myMemory);
   printf("%s", myMemory.freed == 1 ? "true" : "false");
 
 
@@ -168,7 +170,9 @@ int main (void) {
       ORIGINAL IDEA FOR THIS PROJECT BELOW:
   */
 
-  /*
+  /* // supposedly this is undefined behavior, but it works on my system lol
+  // I should look into it (actually learn more C)
+
   // create 256 bytes of free memory at this pointer location:
   char * myMemoryOffset = malloc(256); // make sure this size is less than max unsigned int
 
@@ -177,12 +181,16 @@ int main (void) {
 
   // derefence the address at myMemoryOffset[index], and assign a value to it
   // (must case the address a)
+
+  // This is will a warning if myMemoryOffset is a void pointer.
+  // It WORKS, but you must disable GCC warnings. 
+  // I feel I'd like it to be void, but `uint8_t *`or `char` work as well, I suppose.
   *(int *)&myMemoryOffset[var1] = 5;
 
   // convince C that the offset of 0 in our memory is an int again, dereferences it, and prints the result.
   printf("%i\n", *((int*) &myMemoryOffset[var1]));
-  printf("Size of my memory offset: %i", sizeof(*myMemoryOffset));
-  */
+  printf("Size of my memory offset: %i", sizeof(*myMemoryOffset)); */
+ 
 
   
 }
