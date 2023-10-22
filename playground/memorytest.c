@@ -13,34 +13,39 @@ typedef struct {
   uint8_t size;
   uint8_t * address;
   bool freed;
-} CustomMemory;
+} ManualMemory;
 
 typedef struct {
   uint8_t size;
   uint8_t start;
-} DataInfo;
+} ManualPointer;
 
-CustomMemory allocateCustomMemory(uint8_t size) {
+ManualMemory allocateManualMemory(uint8_t size) {
   // dynamically allocates a chunk of memory and packages it in a struct.
-  CustomMemory theCustomMemory = {size, malloc(size), false};
-  return theCustomMemory;
+  ManualMemory theManualMemory = {size, malloc(size), false};
+  return theManualMemory;
 }
 
-DataInfo assignToCustomMemory(CustomMemory memory, uint8_t index, uint8_t sizeInBytes, char * data) {
-  // assigns a value somewhere in an CustomMemory object for use later.
+ManualPointer assignToManualMemory(ManualMemory memory, uint8_t index, uint8_t sizeInBytes, char * data) {
+  // assigns a value somewhere in an ManualMemory object for use later.
 
-  if(
-    index > memory.size - 1 ||                      // index is out of bounds (too large)
-    index + 1 < 1 ||                                // index is out of bounds (too low)
-    index + (sizeInBytes - 1) > memory.size - 1 ||  // the amount of bytes from the index will exceed bounds
-    sizeInBytes + 1 < 1                             // no bytes are being assigned a value
+  if (
+    // index is out of bounds
+    index > memory.size - 1 ||                      
+    index + 1 < 1 ||
+    // the amount of bytes from the index will exceed bounds
+    index + (sizeInBytes - 1) > memory.size - 1 ||
+    // no bytes are being assigned a value
+    // NOTE: 1 is added to both sides of this check since sizeInBytes can't be 0
+    sizeInBytes + 1 < 1 
   ) {
     // return impossible garbage data.
-    DataInfo emptyVar = {UINT8_MAX, UINT8_MAX};
-    return emptyVar;
+    ManualPointer emptyPointer = {UINT8_MAX, UINT8_MAX};
+    return emptyPointer;
   }
 
-  /*
+  /*  Assigning Data To An Arbitrary Spot In Allocated Memory (a how-to guide):
+
     1.  Get and dereference the address of a specific byte in allocated 
         memory using `*&memory.address[index];`
 
@@ -59,62 +64,49 @@ DataInfo assignToCustomMemory(CustomMemory memory, uint8_t index, uint8_t sizeIn
         So: `*(uint8_t *) data` if it's an 8bit value.
 
     3.  return a struct containing where the data starts and it's size in bytes.
+        (for future reads/writes)
   */
 
   // THIS WORKS! Push the data onto the memory location one byte at a time.
+  // No compiler warnings, no problem.
   for(uint8_t i = 0; i < sizeInBytes; i++) {
     *(uint8_t *)&memory.address[index + i] = *(uint8_t *)&data[i];
   }
 
-  /* if(sizeInBytes == 1) {
-    *(uint8_t *)&memory.address[index] = *(uint8_t *)data;
-  } else if(sizeInBytes == 2) {
-    *(uint16_t *)&memory.address[index] = *(uint16_t *)data;
-  } else if(sizeInBytes == 4) {
-    *(uint32_t *)&memory.address[index] = *(uint32_t *)data;
-  } else if (sizeInBytes == 8){
-    *(uint64_t *)&memory.address[index] = *(uint64_t *)data;
-  } else {
-    // THIS WORKS! Allocate the data dynamically.
-    for(uint8_t i = 0; i < sizeInBytes; i++) {
-      *(uint8_t *)&memory.address[index + i] = *(uint8_t *)&data[i];
-    }
-  } */
-
-  DataInfo info = {sizeInBytes, index};
-  
+  ManualPointer info = {sizeInBytes, index};
   return info;
 }
 
-void freeCustomMemory(CustomMemory * memory) {
+void freeManualMemory(ManualMemory * memory) {
   // frees dynamically allocated memory and marks the struct as freed.
   free(memory->address);
   memory->size = 0;
   memory->freed = true;
 }
 
-void * readData(CustomMemory memory, DataInfo data) {
-  // return a void pointer to the data
+void * readData(ManualMemory memory, ManualPointer data) {
+  // return a void pointer to the data. 
+  // It can then be read with the info in the ManualPointer struct.
   return &memory.address[data.start];
 }
 
-void printData(CustomMemory memory, char * formatString, DataInfo data) {
-  // grab data from somehwere an allocated memory struct and print it.
+void printData(ManualMemory memory, char * formatString, ManualPointer data) {
+  // grab read data from ManualMemory and print it using printf
   switch(data.size) {
     case 1:
-      // convince C data starting at `memory.address[data.start]` is a char
+      // convince C data starting at `memory.address[data.start]` is 1 byte
       printf(formatString, *(uint8_t *)readData(memory, data));
       break;
     case 2:
-      // convince C data starting at `memory.address[data.start]` is a short
+      // convince C data starting at `memory.address[data.start]` is 2 bytes
       printf(formatString, *(uint16_t *)readData(memory, data));
       break;
     case 4:
-      // convince C data starting at `memory.address[data.start]` is a long
+      // convince C data starting at `memory.address[data.start]` is 4 bytes
       printf(formatString, *(uint32_t *)readData(memory, data));
       break;
     case 8:
-      // convince C data starting at `memory.address[data.start]` is a long long
+      // convince C data starting at `memory.address[data.start]` is 8 bytes
       printf(formatString, *(uint64_t *)readData(memory, data));
       break;
   }
@@ -124,47 +116,47 @@ void printData(CustomMemory memory, char * formatString, DataInfo data) {
 
 int main (void) {
   // Only allowing memory chunks up to 255 bytes, because I don't really need more
-  CustomMemory myMemory = allocateCustomMemory(255);
+  ManualMemory myMemory = allocateManualMemory(255);
   printf("%i\n", myMemory.size);
   printf("%p\n", myMemory.address);
 
-  // woo! works!
+
   char myCharacter = 'z';
-  // assigns the character to byte 0 of myMemory
-  // A 'DataInfo' struct just holds the index and size of some unknown data in myMemory
-  DataInfo myCharacterVar = assignToCustomMemory(myMemory, 0, sizeof(myCharacter), &myCharacter);
-  printData(myMemory, "%c\n", myCharacterVar);
-
-  // works again!
-  // assigns the character to byte 1 of myMemory
   char myCharacter2 = 'g';
-  DataInfo myCharacterVar2 = assignToCustomMemory(myMemory, 1, sizeof(myCharacter2), &myCharacter2);
-  printData(myMemory, "%c\n", myCharacterVar2);
-
-
-  // woo!
-  
   long int myNum = 1000;
-  // assigns the number to bytes 8-15 of myMemory
-  // runtime check complains about alignment when assigning 64-bit integers, so we assign it to index 8.
+  char * myString = "Hey! My name is billy ray!";
+
+
+
+  // assigns the character to byte 0 of myMemory
+  // A 'ManualPointer' struct just holds the index and size of some unknown data in myMemory
+  ManualPointer myCharacterPointer = assignToManualMemory(myMemory, 0, sizeof(myCharacter), &myCharacter);
+  ManualPointer myCharacterPointer2 = assignToManualMemory(myMemory, 1, sizeof(myCharacter2), &myCharacter2);
+
+  // runtime check complains about alignment when assigning 64-bit integers, 
+  // so we assign it to index 8. C seems to like the number 8.
   // (-fsanitize=address,undefined) <-- said runtime check.
-  DataInfo myNumVar = assignToCustomMemory(myMemory, 8, sizeof(myNum), (char *)&myNum);
-  printData(myMemory, "%li\n", myNumVar);
+  // - - - - - 
+  // must assign to char pointer to void compiler complaints... 
+  // the compiler doesn't complain though... so that must mean it's a-okay?
+  // (this is probably undefined behavior)
+  ManualPointer myNumPointer = assignToManualMemory(myMemory, 8, sizeof(myNum), (char *)&myNum);
+
+  ManualPointer myStringPointer = assignToManualMemory(myMemory, 16, strlen(myString) + 1, myString);
 
   
+  printData(myMemory, "%c\n", myCharacterPointer);  // works!
+  printData(myMemory, "%c\n", myCharacterPointer2); // works again!
+  printData(myMemory, "%li\n", myNumPointer);       // works thrice!
 
-  // I can read each individual character though... so all the data is stored.
-  char * myString = "Hey! My name is billy ray!";
-  DataInfo myStringVar = assignToCustomMemory(myMemory, 16, strlen(myString) + 1, myString);
-  printf("%c\n", *(char *)&myMemory.address[myStringVar.start + 0]);  // print first char
-  printf("%c\n", *(char *)&myMemory.address[myStringVar.start + 1]);  // print second
-  // ooo! I can get it to read the whole string! I just have to *not* dereference it.
-  printf("%s\n", (char *)readData(myMemory, myStringVar));
-
+  // can even print chars in strings/whole strings!
+  printf("%s\n", (char *)readData(myMemory, myStringPointer)); // read string (must not dereference)
+  printf("%c\n", *(char *)&myMemory.address[myStringPointer.start + 0]);  // print first char
+  printf("%c\n", *(char *)&myMemory.address[myStringPointer.start + 1]);  // print second
 
   // have to pass a pointer, otherwise the struct is copied and `myMemory.freed` in this scope is not set to `true`
   // (the actual memory *is* freed though)
-  freeCustomMemory(&myMemory);
+  freeManualMemory(&myMemory);
   printf("%s", myMemory.freed == 1 ? "true" : "false");
 
 
