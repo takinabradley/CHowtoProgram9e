@@ -30,13 +30,14 @@ DataInfo assignToCustomMemory(CustomMemory memory, uint8_t index, uint8_t sizeIn
   // assigns a value somewhere in an CustomMemory object for use later.
 
   if(
-    index > memory.size - 1 ||                      // the index is out of bounds
-    index < 0 || 
-    index + (sizeInBytes - 1) > memory.size - 1 ||  // the amount of bytes will exceed bound from index
-    sizeInBytes < 0                                 // no bytes are being assigned a value
+    index > memory.size - 1 ||                      // index is out of bounds (too large)
+    index + 1 < 1 ||                                // index is out of bounds (too low)
+    index + (sizeInBytes - 1) > memory.size - 1 ||  // the amount of bytes from the index will exceed bounds
+    sizeInBytes + 1 < 1                             // no bytes are being assigned a value
   ) {
     // return impossible garbage data.
     DataInfo emptyVar = {UINT8_MAX, UINT8_MAX};
+    return emptyVar;
   }
 
   /*
@@ -60,7 +61,7 @@ DataInfo assignToCustomMemory(CustomMemory memory, uint8_t index, uint8_t sizeIn
     3.  return a struct containing where the data starts and it's size in bytes.
   */
 
-  // THIS WORKS! Allocate the data dynamically.
+  // THIS WORKS! Push the data onto the memory location one byte at a time.
   for(uint8_t i = 0; i < sizeInBytes; i++) {
     *(uint8_t *)&memory.address[index + i] = *(uint8_t *)&data[i];
   }
@@ -102,7 +103,6 @@ void printData(CustomMemory memory, char * formatString, DataInfo data) {
   switch(data.size) {
     case 1:
       // convince C data starting at `memory.address[data.start]` is a char
-      //printf(formatString, *((char*) &memory.address[data.start]));
       printf(formatString, *(uint8_t *)readData(memory, data));
       break;
     case 2:
@@ -141,20 +141,23 @@ int main (void) {
   DataInfo myCharacterVar2 = assignToCustomMemory(myMemory, 1, sizeof(myCharacter2), &myCharacter2);
   printData(myMemory, "%c\n", myCharacterVar2);
 
+
   // woo!
-  // assigns the number to bytes 2-5 of myMemory
+  
   long int myNum = 1000;
-  DataInfo myNumVar = assignToCustomMemory(myMemory, 2, sizeof(myNum), (char *)&myNum);
+  // assigns the number to bytes 8-15 of myMemory
+  // runtime check complains about alignment when assigning 64-bit integers, so we assign it to index 8.
+  // (-fsanitize=address,undefined) <-- said runtime check.
+  DataInfo myNumVar = assignToCustomMemory(myMemory, 8, sizeof(myNum), (char *)&myNum);
   printData(myMemory, "%li\n", myNumVar);
 
   
 
   // I can read each individual character though... so all the data is stored.
   char * myString = "Hey! My name is billy ray!";
-  DataInfo myStringVar = assignToCustomMemory(myMemory, 6, strlen(myString) + 1, myString);
-  printData(myMemory, "%c\n", myStringVar);
-  printf("%c\n", *(char *)&myMemory.address[myStringVar.start + 0]);
-  printf("%c\n", *(char *)&myMemory.address[myStringVar.start + 1]);
+  DataInfo myStringVar = assignToCustomMemory(myMemory, 16, strlen(myString) + 1, myString);
+  printf("%c\n", *(char *)&myMemory.address[myStringVar.start + 0]);  // print first char
+  printf("%c\n", *(char *)&myMemory.address[myStringVar.start + 1]);  // print second
   // ooo! I can get it to read the whole string! I just have to *not* dereference it.
   printf("%s\n", (char *)readData(myMemory, myStringVar));
 
@@ -163,7 +166,6 @@ int main (void) {
   // (the actual memory *is* freed though)
   freeCustomMemory(&myMemory);
   printf("%s", myMemory.freed == 1 ? "true" : "false");
-
 
 
   /*
